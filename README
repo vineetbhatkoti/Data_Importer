@@ -1,0 +1,23 @@
+This import device program is made using Nodejs, Redis Queue and MongoDB
+
+Design Considerations:
+1) Redis Queue was chosen over rabbitMQ due to it being in-memory. In case of importing millions/billions of devices persistence and reliability of the queue should be important. Therefore RabbitMQ would become more favorable.
+
+2) The input file for this utility was tab delimited, but this program can be extended to handle other different type of file format as well like csv or json etc.
+
+3) config.json is the configuration file. New devices and their configurations can be added to it.
+
+
+
+Running the program:
+
+node importData --help
+
+  Usage: importData [options]
+
+  Options:
+
+    -h, --help                  output usage information
+    -V, --version               output the version number
+    -d, --device <device_type>  specify type of device to  import
+    -f, --file <file>           specify file to import

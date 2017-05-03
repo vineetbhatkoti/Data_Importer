@@ -1,0 +1,82 @@
+{  "connect":
+        [{
+        "BLPassword": 
+        {"ignore": "true",
+        "dbname": "",
+        "criteria": "",
+        "type": "" }
+        }
+        ,
+        {
+        "serialNumber":
+        {
+        "ignore": "false",
+        "dbname": "serialNumber",
+        "criteria": "^([0-9A-Z]{10})$",
+        "type": "string" 
+        }
+        }
+        ,
+
+        {
+        "skuNumber": {
+        "ignore": "false",
+        "dbname": "skuNumber",
+        "criteria": "^(AUG-AC[0-9]{2})|(02-01-001)$",
+        "type": "string" 
+        }
+        },
+        {
+        "macAddressWiFi":{
+        "ignore": "false",
+        "dbname": "wifiMacAddress",
+        "criteria": "^([a-fA-F0-9]{2}[:\\.-]?){5}[a-fA-F0-9]{2}$",
+        "type": "string" 
+        }}
+        ,
+        {
+        "shipDate":{
+        "ignore": "false",
+        "dbname": "shipDate",
+        "criteria": "^(\\d{4}-\\d{2}-\\d{2})$",
+        "type": "date" 
+        }
+        }
+        ]
+      ,
+     "doorbell":       
+        [{
+        "serialNumber":{
+        "ignore": "false",
+        "dbname": "serialNumber",
+        "criteria": "^(D1[0-9A-Z]{8})$",
+        "type": "string" 
+        }
+        }
+        ,
+
+        {
+        "skuNumber":{
+        "ignore": "false",
+        "dbname": "skuNumber",
+        "criteria": "^(AUG-AB[0-9]{2})|(02-01-001)$",
+        "type": "string" 
+        }
+        },
+        {
+        "augfirmware":{
+        "ignore": "false",
+        "dbname": "augfirmware",
+        "criteria": "semver",
+        "type": "string" 
+        }}
+        ,
+         {
+        "battserialnumber":{
+        "ignore": "false",
+        "dbname": "batterySerialNumber",
+        "criteria": "^([0-9A-Z]{10})$",
+        "type": "string" }
+        }]
+    
+}

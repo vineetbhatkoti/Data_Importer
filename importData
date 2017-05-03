@@ -1,0 +1,214 @@
+#!/usr/local/bin/node
+
+var
+// core modules
+ fs = require('fs'),
+ // dependencies
+ program = require('commander'),
+ exec = require('sync-exec');
+var MongoClient = require('mongodb').MongoClient;
+var readline = require('readline');
+var config = require('./config.json');
+
+//command line arguments for the script
+program
+ .version('0.0.1')
+ .option('-d, --device <device_type>', 'specify type of device to  import')
+ .option('-f, --file <file>', 'specify file to import')
+ .parse(process.argv);
+
+//variables
+process.env['NODE_ENV'] = (program.env || 'local');
+program.log = program.log || 'warn';
+var countLine = 0;
+var header = "";
+var successCount = 0;
+var failureCount = 0; 
+var failureMessage = "";
+
+//If no device specified along with the program
+if (!program.device) {
+ console.log("Please provide device type as argument");
+ process.exit(0);
+}
+
+
+var device = program.device;
+var deviceSetting = config[device];
+
+
+//function to process each line of the file
+function processMessage(line) {
+ var arr = line.split('\t');
+ var newColumns = header.split('\t');
+ var len = arr.length;
+ var i = 0;
+ var collect = "";
+ var jsonArr = {};
+
+ while (i < len) {
+
+  var fileColumn = newColumns[i];
+  var b = deviceSetting[i][fileColumn];
+  if (b['ignore'] == 'true') {
+   i++;
+   continue;
+  } else {
+   var regex = b['criteria'];
+   if(arr[i] == "")
+   {
+   console.log("MISSING FIELD: "+b['dbname']);
+   process.exit(0);
+   }
+
+   if (arr[i].match(regex)) {
+    var db = b['dbname'];
+    jsonArr[db] = arr[i].trim();
+   }
+   i++;
+  }
+
+ }
+
+ return jsonArr;
+}
+
+
+
+// Initializing Redis Message Queue
+RedisSMQ = require("rsmq");
+rsmq = new RedisSMQ({
+ host: "127.0.0.1",
+ port: 6379,
+ ns: "rsmq"
+});
+
+// Creating Redis Queue named August_Home
+rsmq.createQueue({
+ qname: "Message_Queue"
+}, function(err, resp) {
+ if (resp === 1) {
+  console.log("queue created")
+ }
+});
+
+
+
+
+setTimeout(function() {
+  
+  // If no input file is provided with the command line then exit
+  if(!program.file)
+  {
+  console.log("Please provide input file as argument");
+  process.exit(0);
+  }
+  
+  // If input file is provided then process it
+  if (program.file) {
+   var filePath = program.file;
+   rl = readline.createInterface({
+    input: fs.createReadStream(filePath)
+   });
+
+  }
+
+  // Reading file contents line by line and sending then to the Redis Queue
+  rl.on('line', function(line) {
+   rsmq.sendMessage({
+    qname: "Message_Queue",
+    message: line.trim()
+   }, function(err, resp) {
+    if (resp) {
+  //   console.log("Message sent. ID:", resp);
+
+    }
+   });
+
+
+  
+
+   // Pop line message received in the queue to process
+   rsmq.popMessage({
+    qname: "Message_Queue"
+   }, function(err, resp) { 
+    if (resp) {
+     countLine = countLine + 1;
+     if (countLine == 1) {
+      header = resp.message;
+
+     } else {
+      var len = resp.message.split('\t').length;
+
+      if (len == 5) {   
+
+      // Process the line
+       var jsonResult = processMessage(resp.message, header);
+       
+       if(jsonResult){
+
+       // Inserting device information in json document format in MongoDB after parsing it
+       MongoClient.connect("mongodb://localhost:27017/MessageDB", function(err, db) {
+        if (!err) {
+         var collection = db.collection('device');
+         collection.createIndex({serialNumber:1},{unique:true});
+         collection.insert(jsonResult, function(err,result){
+         if(err)
+         {
+         failureMessage = "Error while inserting record" + err.message;
+         failureCount++;
+         }
+         else
+         {
+          successCount++;
+         }
+
+         });
+        
+        }
+     
+       });   
+
+       // Checking if there are messages left in the Redis Queue to process
+       rsmq.getQueueAttributes({qname: "Message_Queue"
+      }, function(err, resp) { 
+    if(resp)
+    {
+
+    // If there are no message to process then print import summary and exit
+    if(resp.msgs ==  0)
+    {
+      
+      setTimeout(function()
+      {
+      console.log("--------------------------------------Import Summary------------------------------------------------------------");
+      console.log("TOTAL DEVICE SUCCESSFULLY IMPORTED: "+successCount);
+      console.log("TOTAL FAILURE :" +failureCount);
+      console.log("FAILURE CAUSE: "+ failureMessage);
+      console.log("----------------------------------------------------------------------------------------------------------------");
+      process.exit(0);
+      },500);
+      
+    }
+    }
+
+   });
+
+       }
+     
+      }
+     
+     } //else
+
+     if (err) {
+      return console.dir(err);
+     }  
+     
+    } else {
+     rsmq.quit();
+
+     console.log("No messages for me...")
+    }
+   });
+  });
+ }, 10);
